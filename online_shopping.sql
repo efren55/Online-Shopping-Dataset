@@ -294,3 +294,92 @@ with location_pe as (
 	select location, round(sum((quantity * avg_price)),2) as income from shopping group by location
 )
 select * from location_pe order by income desc;
+
+#LOS COMPRADORES CON MAS TIEMPO ASOCIADO A LA PLATAFORMA COMPRARON MAS EN UN MES ESPECIFICO?
+with tenure_month as (
+	select month, round(avg(tenure_months),2) as tenure_months,count(*) as total from shopping group by month
+)
+select * from tenure_month order by tenure_months desc;
+
+#LOS COMPRADORES CON MAS TIEMPO ASOCIADO A LA PLATAFORMA PREFIEREN UN TIPO DE PRODUCTO?
+with tenure_product as (
+	select product_category, round(avg(tenure_months),2) as tenure_months, count(*) as total from shopping group by product_category
+)
+select * from tenure_product order by tenure_months desc;
+
+#LOS QUE TIENEN MAS TIEMPO EN LA PLATAFORMA COMPRAN MAS CANTIDAD DE PRODUCTOS?
+with tenure_quantity as(
+	select case 
+		when tenure_months<=12 then 'No more than a year'
+        when tenure_months>12 and tenure_months<=24 then 'Between 1 and 2 years'
+        when tenure_months>24 and tenure_months<=36 then 'Between 2 and 3 years'
+        else '3+ years'
+        end as user_time, sum(quantity) as 'Sum',round(avg(quantity),2) quantity_avg from shopping group by user_time
+)
+
+select * from tenure_quantity;
+
+#LOS QUE TUVIERON MAS TIEMPO EN LA PLATAFORMA TUVIERON MAS O MENOS DESCUENTO?
+with tenure_discount as(
+	select case 
+		when tenure_months<=12 then 'No more than a year'
+        when tenure_months>12 and tenure_months<=24 then 'Between 1 and 2 years'
+        when tenure_months>24 and tenure_months<=36 then 'Between 2 and 3 years'
+        else '3+ years'
+        end as user_time, round(avg(discount_pct),2) as discount_avg from shopping group by user_time
+)
+select * from tenure_discount;
+
+#QUE CATEGORIA DE PRODUCTOS COMPRARON CON MAS CANTIDAD?
+with product_quantity as(
+	select product_category, sum(quantity) as total_quantity,round(avg(quantity),2) as quantity_avg,
+    round(avg(avg_price),2) as avg_price from shopping group by product_category
+)
+select * from product_quantity order by quantity_avg desc;
+
+#QUE CATEGORIA DE PRODUCTO TIENE UN PRECIO MAS ALTO?
+with product_price as(
+	select product_category, round(avg(avg_price),2) as avg_price from shopping group by product_category
+)
+select * from product_price order by avg_price desc;
+
+#QUE CATEGORIA SE COMPRO MAS POR MES?
+with product_month as(
+	select product_category,month,count(*) as total from shopping group by product_category,month
+)
+select * from product_month order by month,total desc;
+
+#EN QUE CATEGORIA MAS DE PRODUCTOS SE USO MAS CUPONES
+select coupon_status,count(*) from shopping group by coupon_status;
+with product_coupon as(
+	select product_category as category,sum(case when coupon_status='Used' then 1 else 0 end) as Used,
+    sum(case when coupon_status='Not Used' then 1 else 0 end) as 'Not used',sum(case when coupon_status='Clicked' then 1 else 0 end) as 'Clicked'
+    from shopping group by product_category
+)
+select * from product_coupon;
+
+#QUE CATEGORIA DE PRODUCTO TUVO MAS DESCUENTO?
+with product_discount as(
+	select product_category, round(avg(discount_pct),2) as avg_discount,round(avg(avg_price),2) as avg_price,
+    round(avg(quantity),2) as avg_quantity from shopping group by product_category
+)
+select * from product_discount order by avg_discount desc;
+
+#EL USO DE CUPONES FUE POR LA CANTIDAD DE PRODUCTOS
+with quantity_coupon as (
+	select coupon_status,round(avg(quantity),2) as avg_quantity,sum(quantity) as total_quantity from shopping group by coupon_status
+)
+select * from quantity_coupon;
+
+#LA CANTIDAD DE PRODUCTO INFLUYO EN EL DESCUENTO?
+select max(quantity),min(quantity),avg(quantity) from shopping;
+with quantity_discount as(
+	select case
+		when quantity<10 then 'Less than 10'
+        when quantity between 10 and 20 then 'Between 10 and 20'
+        when quantity between 20 and 50 then 'Between 20 and 50'
+        when quantity between 50 and 100 then 'Betwen 50 and 100'
+        else'+100'
+        end as quantities, round(avg(discount_pct),2) as avg_discount from shopping group by quantities
+)
+select * from quantity_discount order by avg_discount desc;
