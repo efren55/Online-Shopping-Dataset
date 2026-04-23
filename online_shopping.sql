@@ -383,3 +383,31 @@ with quantity_discount as(
         end as quantities, round(avg(discount_pct),2) as avg_discount from shopping group by quantities
 )
 select * from quantity_discount order by avg_discount desc;
+
+#LOS CUPONES SE USARON CON UN PRECIO ALTO?
+with price_coupon as(
+	select coupon_status, round(avg(avg_price),2) as avg_prices from shopping group by coupon_status
+)
+select * from price_coupon;
+
+#LOS PRECIOS AUMENTARON CON LOS MESES?
+with price_month as(
+	select month,round(avg(avg_price),2) as avg_prices from shopping group by month 
+)
+select * from price_month; 
+
+#PRECIO PROMEDIO EN QUE SE APLICARON LOS DESCUENTOS
+with price_discount as(
+	select case
+		when avg_price between 0 and 20 then 'Products less than 20' 
+        when avg_price between 20 and 50 then 'Products between 20 and 50'
+        else 'Products over 50'
+        end as prices, round(avg(discount_pct),2) as avg_discount from shopping group by prices
+)
+select * from price_discount;
+
+#DESCUENTO PROMEDIO CADA MES
+with discount_month as(
+	select month,round(avg(discount_pct),2) as avg_discount from shopping group by month
+)
+select * from discount_month order by avg_discount desc;
