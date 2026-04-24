@@ -42,7 +42,7 @@ with customer_id as(
 )
 select 'Quantity',count(*) as amount from customer_id;
 
-#USUARIOS CON MAS ACTIVIDAD ERAN HOMBRES O MUJERES
+#ARE THE USERS WITH MORE ACTIVITY WERE MEN OR WOMEN?
 with user_sex as(
     SELECT customerid, gender, COUNT(*) AS amount
     FROM shopping
@@ -63,13 +63,12 @@ with activity as (
  sum(case when gender='F' then 1 else 0 end) as 'Women' from percentage group by segment;
  
 
-#LOCALIDAD DE LOS USUARIOS CON MAS ACTIVIDAD
+#¿DÓNDE VIVEN LOS USUARIOS CON MAYOR ACTIVIDAD?
 with user_location as (
 	select customerid,location,count(*) as amount from shopping group by customerid,location order by amount desc limit 50
 )
 select * from user_location;
 
-#USUARIOS DE DIFERENTE LOCALIDAD 10% MAS ACTIVOS DEL DATASET 
 with localidad as(
 	select customerid, count(*) as total from shopping group by customerid
 ), percentage as (
@@ -80,8 +79,8 @@ select location,sum(case when percentile <= 0.1 then 1 else 0 end) as 'Top 10', 
 from percentage group by location;
 
 
-#TIEMPO DE SUSCRIPCION POR PARTE DE LOS USUARIOS CON MAS ATIVIDAD Y MENOS ACTIVIDAD
-#LOS USUARIOS QUE MAS COMPRARON TENIAN MAS TIEMPO EN LA PLATAFORMA?
+#SUBSCRIPTION BY THE USERS WITH MORE ACTIVITY VS THE REST
+
 with user_time as (
 	select customerid,tenure_months,count(*) as amount from shopping group by customerid,tenure_months
 )
@@ -89,17 +88,16 @@ select 'Average_high' as category,round(avg(tenure_months),2) as Average from (s
 from user_time order by amount desc limit 50) as table_high union all
 select 'Average_low', round(avg(tenure_months),2) from (select tenure_months from user_time order by amount asc limit 50) as table_low;
 
-#PROMEDIO DEL TOP 10 Y RESTO DE USUARIOS MAS ACTIVOS
 with users_time as(
 	select customerid,count(*) as total from shopping group by customerid
 ), percentage as (
 	select u.customerid,percent_rank() over(order by count(*) desc) as percentile,s.tenure_months from users_time as u join shopping as s on u.customerid=s.customerid 
     group by u.customerid,s.tenure_months,u.total
 )
-select case when percentile <= 0.1 then 'Top 10' else 'Resto' end as Users, round(avg(tenure_months),2) from percentage group by Users; 
+select case when percentile <= 0.1 then 'Top 10' else 'Resto' end as Users, round(avg(tenure_months),2) as avg_tenure from percentage group by Users; 
 
 
-#USUARIOS CON MAS COMPRAS CADA MES
+#USERS WITH MORE SHOPPING
 with user_month as (
 	select customerid,sum(if(month(transaction_date)=1,1,0)) as January,sum(if(month(transaction_date)=2,1,0)) as February,sum(if(month(transaction_date)=3,1,0)) as March,
     sum(if(month(transaction_date)=4,1,0)) as April, sum(if(month(transaction_date)=5,1,0)) as May,sum(if(month(transaction_date)=6,1,0)) as June,
@@ -109,7 +107,7 @@ with user_month as (
 )
 select * from user_month order by total desc limit 50;
 
-#USUARIOS TOP 10 Y EL RESTO CON MAS COMPRAS
+#USERS WITH MORE SHOPPING BY THE TOP USERS VS THE REST
 with users_month as (
 	select customerid,count(*) as total from shopping group by customerid
 ), percentage as (
@@ -119,7 +117,7 @@ with users_month as (
 select months,sum(case when percentile <= 0.1 then 1 else 0 end) as 'Top 10', sum(case when percentile > 0.1 then 1 else 0 end) as 'Resto' from percentage group by months;
 
 
-#COMPRAS DE LOS USUARIOS TOP 5% VS EL RESTO 
+#SHOPPING BY THE TOP USERS VS THE REST
 with users_month as(
 	select customerid,count(*) as total_activity,percent_rank() over (order by count(*) desc) as percentile from shopping group by customerid
 )
@@ -129,7 +127,7 @@ select case
  end as segment,round(avg(total_activity),2) as avg_activity,count(*) as num_users from users_month group by segment; #188 compras anuales
  
  
-#DISTRIBUCION DE TIPO DE PRODUCTOS POR USUARIO 
+#DISTRIBUTION OF THE DIFFERENT TYPES OF PRODUCTS PURCHASED BY USERS
 WITH user_segments AS (
     SELECT 
         customerid,
@@ -152,7 +150,7 @@ ORDER BY tipo_usuario, cantidad_compras DESC;
 
 select product_category,count(*) from shopping group by product_category;
 
-#CANTIDAD DE PRODUCTOS DE COMPRA DE USUARIOS TOP 10 Y RESTO
+#QUANTITY OF PRODUCTS PURCHASED BY THE TOP USERS VS THE REST
 with users_quantity as (
 	select customerid,count(*) as total from shopping group by customerid 
 ),percentage as (
@@ -161,7 +159,7 @@ with users_quantity as (
 )
 select case when percentile <=0.1 then 'Top 10' else 'Resto' end as categoria, sum(quantity) as amount from percentage group by categoria;
 
-#PRECIO PROMEDIO DE LOS DE LOS PRODUCTOS COMPRADOS POR LOS USUARIOS TOP 10 Y EL RESTO
+#AVERAGE PRICE OF THE PURCHASED PRODUCTS BY THE USERS TOP 10 VS THE REST
 with users_price as (
 	select customerid,count(*) as total from shopping group by customerid
 ),percentage as (
@@ -170,47 +168,47 @@ with users_price as (
 )
 select case when percentile <= 0.1 then 'Top 10' else 'Rest' end as category,round(avg(avg_price),2) as price from percentage group by category;
 
-#LOS USUARIOS TOP 10 USABAN MAS CUPONES QUE EL RESTO?
+#TOP 10 USERS THAT USED MORE COUPONS
 with users_coupon as (
 	select customerid,percent_rank() over(order by count(*) desc) as percentile from shopping group by customerid
 )
 select s.coupon_status,case when u.percentile <= 0.1 then 'Top 10' else 'Resto' end as categoria,count(*) total from shopping as s join users_coupon as u 
 on s.customerid=u.customerid group by s.coupon_status,categoria;
 
-#LAS PERSONAS TOP 10 TIENEN MAS O MENOS DESCUENTO QUE EL RESTO?
+#ARE THE TOP 10 USERS MORE OR LESS DISCOUNT THAN THE REST?
 with users_discount as (
 	select customerid,percent_rank() over(order by count(*) desc) as percentile from shopping group by customerid
 )
 select case when u.percentile <= 0.1 then 'Top 10' else 'Resto' end as Categoria, round(avg(s.discount_pct),2) as descuento from users_discount as u 
 join shopping as s on u.customerid=s.customerid group by Categoria;
 
-#DISTRIBUCION DE HOMBRES Y MUJERES POR ESTADO
+#DISTRIBUTION OF MEN AND WOMEN BY LOCATION
 with sex_location as (
 	select location, sum(case when gender='M' then 1 else 0 end) as Male, sum(case when gender='F' then 1 else 0 end) as Female, count(*) as Total from shopping group by location
     order by total desc
 )
 select * from sex_location;
 
-#QUE SEXO ESTUVO MAS ASOCIADO A LA PLATAFORMA 
+#WHICH SEX WERE MORE ASSOCIATED TO THE PLATFORM
 with sex_count as (
 	select gender,round(avg(tenure_months),2) as tenure_months from shopping group by gender
 )
 select * from sex_count;
 
-#DISTRIBUCION DE SEXO POR MES
+#DISTRIBUTION OF SEXES BY MONTH
 with sex_months as (
 	select month, sum(case when gender='M' then 1 else 0 end) as Male,sum(case when gender='F' then 1 else 0 end) as Female,count(*) as total from shopping group by month order by total desc
 )
 select * from sex_months;
 
-#QUE PRODUCTOS PREFIRIERON HOMBRES Y MUJERES
+#WHAT PRODUCTS DO MEN AND WOMEN PREFER?
 with sex_products as (
 	select product_category,sum(case when gender='M' then 1 else 0 end) as Male,sum(case when gender='F' then 1 else 0 end) as Female, count(*) as total
     from shopping group by product_category order by total desc
 )
 select * from sex_products;
 
-#PRECIO DE LOS PRODUCTOS COMPRADOS POR CADA SEXO
+#PRICE OF THE PURCHASED PRODUCTS BY EACH SEX
 with sex_price as (
 	select gender,round(avg(avg_price),2) as price from shopping group by gender
 )
@@ -218,13 +216,13 @@ select * from sex_price;
 
 select coupon_status,count(*) from shopping group by coupon_status;
 
-#CANTIDAD DE PRODUCTOS QUE COMPRARON POR CADA SEXO
+#QUANTITY OF PRODUCTS THAT PURCHASED EACH SEX
 with sex_quantity as (
 	select gender,sum(quantity) as sum_quantity, round(avg(quantity),2) as avg_quantity from shopping group by gender
 )
 select * from sex_quantity;
 
-#QUE SEXO USO MAS CUPONES
+#WHICH SEX USES MORE COUPONS?
 with sex_coupons as (
 	select gender,sum(case when coupon_status='Used' then 1 else 0 end) as Used,sum(case when coupon_status='Not Used' then 1 else 0 end) as 'Not Used',
     sum(case when coupon_status='Clicked' then 1 else 0 end) as Clicked from shopping group by gender
@@ -233,55 +231,54 @@ select * from sex_coupons;
 
 select gender,coupon_status,count(*) as total from shopping group by gender,coupon_status;
 
-#QUE SEXO TUVO MAS DESCUENTOS
+#WHICH SEX WAS MORE DISCOUNT?
 with sex_discount as (
 	select gender,round(avg(discount_pct),2) as avg_discount from shopping group by gender
 )
 select * from sex_discount;
 
-#QUE ESTADOS TUVIERON MAS TIEMPO ASOCIADO POR LA PLATAFORMA
+#WHICH LOCATION HAD MORE USERS WITH MORE ASSOCIATED TIME IN THE PLATFORM
 with location_tenure as (
 	select location,round(avg(tenure_months),2) as avg_tenure from shopping group by location
 )
 select * from location_tenure;
 
-#QUE ESTADO TUVO MAS ACTIVIDAD CADA MES 
+#WHICH LOCATION HAD MORE ACTIVITY EACH MONTH
 with location_month as (
 	select location,month,count(*) total from shopping group by location,month
 )
 select * from location_month;
 
-#ESTADO QUE USO MAS CUPONES
+#WHICH LOCATION HAD MORE USERS THAT USED MORE COUPONS
 with location_coupon as (
 	select location,coupon_status,count(*) as total from shopping group by location,coupon_status
 )
 select * from location_coupon;
 
-#COMPRA DE TIPOS DE PRODUCTOS POR CADA ESTADO
+#DIFERENT TYPES OF PURCHASED PRODUCTS BY THE USERS OF EACH LOCATION
 with location_products as (
 	select location,product_category,count(*) as total from shopping group by location,product_category
 )
 select * from location_products;
 
-#CANTIDAD DE PRODUCTOS COMPARDOS POR ESTADOS
+#QUANTITY OF PURCHASED PRODUCTS BY EACH LOCATION
 with location_quantity as (
 	select location,sum(quantity) as sum_quantity,round(avg(quantity),2) as avg_quantity from shopping group by location
 )
 select * from location_quantity;
 
-#PRECIO PROMEDIO QUE COMPRARON LOS USUARIOS POR ESTADO. 
+#AVERAGE PRICE OF PRODUCTS PURCHASED BY USERS
 with location_price as (
 	select location,round(avg(avg_price),2) avg_price from shopping group by location
 )
 select * from location_price;
 
-#QUE ESTADO TUVO MAS DESCUENTO PROMEDIO
+#WHICH LOCATION HAD MORE AVERAGE DISCOUNT
 with location_discount as (
 	select location,round(avg(discount_pct),2) as avg_discount from shopping group by location
 )
 select * from location_discount order by avg_discount desc;
 
-#DESCUENTO,PROMEDIO PRECIO,QUANTITY,
 with location_compare as (
 	select location,count(*) as total_purcharses,sum(quantity) as quantity,round(avg(quantity),2) as avg_quantity,round(avg(avg_price),2) as avg_price,
     round(avg(discount_pct),2) as discount,sum(case when coupon_status='Used' then 1 else 0 end) as 'Coupon used',sum(case when coupon_status='Clicked' then 1 else 0 end) as 'Coupon clicked',
@@ -289,25 +286,25 @@ with location_compare as (
 )
 select * from location_compare;
 
-#CANTIDAD VS PRECIO 
+#QUANTITY VS PRICE
 with location_pe as (
 	select location, round(sum((quantity * avg_price)),2) as income from shopping group by location
 )
 select * from location_pe order by income desc;
 
-#LOS COMPRADORES CON MAS TIEMPO ASOCIADO A LA PLATAFORMA COMPRARON MAS EN UN MES ESPECIFICO?
+#DID THE BUYERS WITH MORE TIME ON THE PLATFORM BUY MORE IN A MONTH ESPECIALLY?
 with tenure_month as (
 	select month, round(avg(tenure_months),2) as tenure_months,count(*) as total from shopping group by month
 )
 select * from tenure_month order by tenure_months desc;
 
-#LOS COMPRADORES CON MAS TIEMPO ASOCIADO A LA PLATAFORMA PREFIEREN UN TIPO DE PRODUCTO?
+#DID THE BUYERS WITH MORE TIME ON THE PLATFORM PREFER ONE KIND OF PRODUCT?
 with tenure_product as (
 	select product_category, round(avg(tenure_months),2) as tenure_months, count(*) as total from shopping group by product_category
 )
 select * from tenure_product order by tenure_months desc;
 
-#LOS QUE TIENEN MAS TIEMPO EN LA PLATAFORMA COMPRAN MAS CANTIDAD DE PRODUCTOS?
+#DID SHOPPERS WHO SPENT MORE TIME ON THE PLATFORM BUY MORE OF ONE TYPE OF PRODUCT?
 with tenure_quantity as(
 	select case 
 		when tenure_months<=12 then 'No more than a year'
@@ -319,7 +316,7 @@ with tenure_quantity as(
 
 select * from tenure_quantity;
 
-#LOS QUE TUVIERON MAS TIEMPO EN LA PLATAFORMA TUVIERON MAS O MENOS DESCUENTO?
+#DID THE SHOPPERS WHO SPENT MORE TIME ON THE PLATFORM HAD MORE OR LESS DISCOUNT
 with tenure_discount as(
 	select case 
 		when tenure_months<=12 then 'No more than a year'
@@ -330,26 +327,26 @@ with tenure_discount as(
 )
 select * from tenure_discount;
 
-#QUE CATEGORIA DE PRODUCTOS COMPRARON CON MAS CANTIDAD?
+#WHICH PRODUCT CATEGORIES BOUGHT WITH MORE QUANTITY?
 with product_quantity as(
 	select product_category, sum(quantity) as total_quantity,round(avg(quantity),2) as quantity_avg,
     round(avg(avg_price),2) as avg_price from shopping group by product_category
 )
 select * from product_quantity order by quantity_avg desc;
 
-#QUE CATEGORIA DE PRODUCTO TIENE UN PRECIO MAS ALTO?
+#WHICH CATEGORY OF PRODUCT HAS A HIGHER PRICE?
 with product_price as(
 	select product_category, round(avg(avg_price),2) as avg_price from shopping group by product_category
 )
 select * from product_price order by avg_price desc;
 
-#QUE CATEGORIA SE COMPRO MAS POR MES?
+#WHICH CATEGORY WAS MORE BOUGHT BY MONTH?
 with product_month as(
 	select product_category,month,count(*) as total from shopping group by product_category,month
 )
 select * from product_month order by month,total desc;
 
-#EN QUE CATEGORIA MAS DE PRODUCTOS SE USO MAS CUPONES
+#IN WHICH CATEGORY WERE THE MOST COUPONS USED?
 select coupon_status,count(*) from shopping group by coupon_status;
 with product_coupon as(
 	select product_category as category,sum(case when coupon_status='Used' then 1 else 0 end) as Used,
@@ -358,20 +355,20 @@ with product_coupon as(
 )
 select * from product_coupon;
 
-#QUE CATEGORIA DE PRODUCTO TUVO MAS DESCUENTO?
+#WHICH CATEGORY HAD MORE DISCOUNT?
 with product_discount as(
 	select product_category, round(avg(discount_pct),2) as avg_discount,round(avg(avg_price),2) as avg_price,
     round(avg(quantity),2) as avg_quantity from shopping group by product_category
 )
 select * from product_discount order by avg_discount desc;
 
-#EL USO DE CUPONES FUE POR LA CANTIDAD DE PRODUCTOS
+#WAS THE USE OF COUPONS WAS DUE TO THE QUANTITY OF PRODUCTS PURCHASED?
 with quantity_coupon as (
 	select coupon_status,round(avg(quantity),2) as avg_quantity,sum(quantity) as total_quantity from shopping group by coupon_status
 )
 select * from quantity_coupon;
 
-#LA CANTIDAD DE PRODUCTO INFLUYO EN EL DESCUENTO?
+#DID THE QUANTITY OF PRODUCTS INFLUENCE THE DISCOUNT?
 select max(quantity),min(quantity),avg(quantity) from shopping;
 with quantity_discount as(
 	select case
@@ -384,19 +381,19 @@ with quantity_discount as(
 )
 select * from quantity_discount order by avg_discount desc;
 
-#LOS CUPONES SE USARON CON UN PRECIO ALTO?
+#WERE THE COUPONS USED IN A HIGHER PRICE?
 with price_coupon as(
 	select coupon_status, round(avg(avg_price),2) as avg_prices from shopping group by coupon_status
 )
 select * from price_coupon;
 
-#LOS PRECIOS AUMENTARON CON LOS MESES?
+#WERE THE PRICES RISES DEPEND OF THE MONTH?
 with price_month as(
 	select month,round(avg(avg_price),2) as avg_prices from shopping group by month 
 )
 select * from price_month; 
 
-#PRECIO PROMEDIO EN QUE SE APLICARON LOS DESCUENTOS
+#DISCOUNT APPLIED IN AVERAGE PRICE OF THE PRODUCTS
 with price_discount as(
 	select case
 		when avg_price between 0 and 20 then 'Products less than 20' 
@@ -406,7 +403,7 @@ with price_discount as(
 )
 select * from price_discount;
 
-#DESCUENTO PROMEDIO CADA MES
+#AVERAGE DISCOUNT BY EACH MONTH
 with discount_month as(
 	select month,round(avg(discount_pct),2) as avg_discount from shopping group by month
 )
